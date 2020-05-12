@@ -104,6 +104,14 @@ defmodule EctoSQL.MixProject do
     end
   end
 
+  defp xqlite3_dep do
+    if path = System.get_env("XQLITE3_PATH") do
+      {:xqlite3, path: path}
+    else
+      {:xqlite3, "~> 0.1.0", optional: true}
+    end
+  end
+
   defp test_paths(adapter) when adapter in @adapters, do: ["integration_test/#{adapter}"]
   defp test_paths(nil), do: ["test"]
   defp test_paths(other), do: raise("unknown adapter #{inspect(other)}")
