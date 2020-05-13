@@ -14,7 +14,7 @@ defmodule Ecto.Adapters.SQLite3 do
 
   @impl Ecto.Adapter.Storage
   @spec storage_up(options :: Keyword.t()) :: :ok | {:error, :already_up} | {:error, term}
-  def storage_up(_opts) do
+  def storage_up(opts) do
     path = Keyword.fetch!(opts, :path) || raise ":path is nil in repository configuration"
 
     if File.exists?(path) do
@@ -39,7 +39,7 @@ defmodule Ecto.Adapters.SQLite3 do
 
   @impl Ecto.Adapter.Storage
   @spec storage_status(options :: Keyword.t()) :: :up | :down | {:error, term()}
-  def storage_status(options) do
+  def storage_status(opts) do
     path = Keyword.fetch!(opts, :path) || raise ":path is nil in repository configuration"
 
     case File.exists?(path) do

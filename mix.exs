@@ -2,7 +2,7 @@ defmodule EctoSQL.MixProject do
   use Mix.Project
 
   @version "3.4.3"
-  @adapters ~w(pg myxql tds)
+  @adapters ~w(pg myxql tds sqlite3)
 
   def project do
     [
@@ -59,6 +59,7 @@ defmodule EctoSQL.MixProject do
       postgrex_dep(),
       myxql_dep(),
       tds_dep(),
+      xqlite3_dep(),
 
       # Bring something in for JSON during tests
       {:jason, ">= 0.0.0", only: [:test, :docs]},
