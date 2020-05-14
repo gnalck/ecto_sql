@@ -52,4 +52,11 @@ _ = Ecto.Adapters.SQLite3.storage_down(TestRepo.config())
 
 Process.flag(:trap_exit, true)
 
+ExUnit.configure(
+  exclude: [
+    :array_type,
+    :returning
+  ]
+)
+
 ExUnit.start()
