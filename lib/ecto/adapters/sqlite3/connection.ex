@@ -12,6 +12,19 @@ if Code.ensure_loaded(XQLite3) do
       XQLite3.query(conn, sql, params, opts)
     end
 
+    @impl true
+    def prepare_execute(conn, name, sql, params, opts) do
+      SQLite3.prepare_execute(conn, name, sql, params, opts)
+    end
+
+    @impl true
+    def execute(conn, query, params, opts) do
+      case SQLite3.execute(conn, query, params, opts) do
+        {:ok, _, result} -> {:ok, result}
+        {:error, _} = error -> error
+      end
+    end
+
     @impl Ecto.Adapters.SQL.Connection
     def insert(prefix, table, header, rows, _on_conflict, _returning) do
       fields = intersperse_map(header, ?,, &quote_name/1)
@@ -23,9 +36,55 @@ if Code.ensure_loaded(XQLite3) do
     #   raise ArgumentError, ":returning is not supported in insert/insert_all by SQLite3"
     # end
 
-    @impl Ecto.Adapters.SQL.Connection
+    alias Ecto.Migration.{Table, Index, Reference, Constraint}
+
+    @impl true
     @spec execute_ddl(command :: Ecto.Adapter.Migration.command()) :: String.t() | [iodata]
-    def execute_ddl
+    def execute_ddl({command, %Table{} = table, columns})
+        when command in [:create, :create_if_not_exists] do
+    end
+
+    def execute_ddl({command, %Table{} = table, columns})
+        when command in [:drop, :drop_if_exists] do
+      [
+        [
+          "DROP TABLE ",
+          if_do(command == :drop_if_exists, "IF EXISTS "),
+          quote_table(table.prefix, table.name)
+        ]
+      ]
+    end
+
+    def execute_ddl({:rename, %Table{} = current_table, %Table{} = new_table}) do
+      [
+        [
+          "ALTER TABLE ",
+          quote_table(current_table.prefix, current_table.name),
+          " RENAME TO ",
+          quote_table(nil, new_table.name)
+        ]
+      ]
+    end
+
+    def execute_ddl({:rename, %Table{} = table, current_column, new_column}) do
+      [
+        [
+          "ALTER TABLE ",
+          quote_table(table.prefix, table.name),
+          " RENAME ",
+          quote_name(current_column),
+          " TO ",
+          quote_name(new_column)
+        ]
+      ]
+    end
+
+    def execute_ddl(string) when is_binary(string), do: [string]
+
+    @impl true
+    def table_exists_query(table) do
+      {"SELECT true FROM sqlite_master where type = 'table' and name = $1", [table]}
+    end
 
     defp insert_all(rows) do
       intersperse_map(rows, ?,, fn row ->
@@ -59,9 +118,7 @@ if Code.ensure_loaded(XQLite3) do
 
     defp quote_table(nil, name), do: quote_table(name)
     defp quote_table(prefix, name), do: [quote_table(prefix), ?., quote_table(name)]
-
-    defp quote_table(name) when is_atom(name),
-      do: quote_table(Atom.to_string(name))
+    defp quote_table(name) when is_atom(name), do: quote_table(Atom.to_string(name))
 
     defp quote_table(name) do
       if String.contains?(name, "`") do
@@ -69,6 +126,10 @@ if Code.ensure_loaded(XQLite3) do
       end
 
       [?`, name, ?`]
+    end
+
+    defp if_do(condition, value) do
+      if condition, do: value, else: []
     end
   end
 end
