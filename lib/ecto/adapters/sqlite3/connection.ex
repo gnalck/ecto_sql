@@ -42,6 +42,17 @@ if Code.ensure_loaded(XQLite3) do
     @spec execute_ddl(command :: Ecto.Adapter.Migration.command()) :: String.t() | [iodata]
     def execute_ddl({command, %Table{} = table, columns})
         when command in [:create, :create_if_not_exists] do
+      table_name = quote_table(table.prefix, table.name)
+
+      query = [
+        "CREATE TABLE ",
+        if_do(command == :create_if_not_exists, "IF NOT EXISTS "),
+        table_name,
+        " (",
+        column_definitions(table, columns),
+        # pk_definitions(columns, ", "),
+        ?)
+      ]
     end
 
     def execute_ddl({command, %Table{} = table, columns})
@@ -131,5 +142,38 @@ if Code.ensure_loaded(XQLite3) do
     defp if_do(condition, value) do
       if condition, do: value, else: []
     end
+
+    defp column_definitions(table, columns) do
+      intersperse_map(columns, ", ", &column_definition(table, &1))
+    end
+
+    defp column_definition(_table, {:add, name, %Reference{} = ref, opts}) do
+      [
+        quote_name(name),
+        ?\s,
+        column_type(ref.type, opts),
+        column_options(ref.type, opts)
+        # reference_expr(ref, table, name)
+      ]
+    end
+
+    defp column_definition(_table, {:add, name, type, opts}) do
+      [quote_name(name), ?\s, column_type(type, opts), column_options(type, opts)]
+    end
+
+    # todo: handle datetimes better
+    defp column_type(atom, _query), do: Atom.to_string(atom)
+
+    defp column_options(type, opts) do
+      default = Keyword.fetch(opts, :default)
+      null = Keyword.get(opts, :null)
+
+      # todo: default_expr
+      [null_expr(null)]
+    end
+
+    defp null_expr(false), do: " NOT NULL"
+    defp null_expr(true), do: " NULL"
+    defp null_expr(_), do: []
   end
 end
