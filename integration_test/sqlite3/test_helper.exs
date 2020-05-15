@@ -35,7 +35,7 @@ end
 # Load support files
 ecto = Mix.Project.deps_paths()[:ecto]
 Code.require_file("#{ecto}/integration_test/support/schemas.exs", __DIR__)
-# Code.require_file("../support/migration.exs", __DIR__)
+Code.require_file("../support/migration.exs", __DIR__)
 
 defmodule Ecto.Integration.Case do
   use ExUnit.CaseTemplate
@@ -47,7 +47,7 @@ _ = Ecto.Adapters.SQLite3.storage_down(TestRepo.config())
 :ok = Ecto.Adapters.SQLite3.storage_up(TestRepo.config())
 
 {:ok, _pid} = TestRepo.start_link()
-# :ok = Ecto.Migrator.up(TestRepo, 0, Ecto.Integration.Migration, log: :debug)
+:ok = Ecto.Migrator.up(TestRepo, 0, Ecto.Integration.Migration, log: :debug)
 # Ecto.Adapters.SQL.Sandbox.mode(TestRepo, :manual)
 
 Process.flag(:trap_exit, true)
