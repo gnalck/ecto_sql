@@ -28,7 +28,7 @@ if Code.ensure_loaded(XQLite3) do
     @impl Ecto.Adapters.SQL.Connection
     def insert(prefix, table, header, rows, _on_conflict, _returning) do
       fields = intersperse_map(header, ?,, &quote_name/1)
-      ["INSERT INTO", quote_table(prefix, table), " (", fields, ") VALUES ", insert_all(rows)]
+      ["INSERT INTO ", quote_table(prefix, table), " (", fields, ") VALUES ", insert_all(rows)]
     end
 
     # def insert(_prefix, _table, _header, _rows, _on_conflict, _returning) do
@@ -75,6 +75,8 @@ if Code.ensure_loaded(XQLite3) do
         when command in [:create, :create_if_not_exists] do
       table_name = quote_table(table.prefix, table.name)
 
+      #IO.inspect(columns)
+
       query = [[
         "CREATE TABLE ",
         if_do(command == :create_if_not_exists, "IF NOT EXISTS "),
@@ -117,6 +119,24 @@ if Code.ensure_loaded(XQLite3) do
           quote_name(current_column),
           " TO ",
           quote_name(new_column)
+        ]
+      ]
+    end
+
+    def execute_ddl({command, %Index{} = index}) do
+      fields = intersperse_map(index.columns, ", ", &index_expr/1)
+
+      [
+        [
+          "CREATE ",
+          if_do(index.unique, "UNIQUE "),
+          "INDEX ",
+          if_do(command == :create_if_not_exists, "IF NOT EXISTS "),
+          quote_name(index.name),
+          " ON ",
+          quote_table(index.prefix, index.table),
+          ?\s, ?(, fields, ?),
+          if_do(index.where, [" WHERE ", to_string(index.where)])
         ]
       ]
     end
@@ -194,6 +214,8 @@ if Code.ensure_loaded(XQLite3) do
     defp null_expr(false), do: " NOT NULL"
     defp null_expr(true), do: " NULL"
     defp null_expr(_), do: []
+
+    defp error!(message), do: error!(nil, message)
 
     defp error!(nil, message) do
       raise ArgumentError, message
@@ -310,6 +332,9 @@ if Code.ensure_loaded(XQLite3) do
       Float.to_string(literal)
     end
 
+    defp index_expr(literal) when is_binary(literal), do: literal
+    defp index_expr(literal), do: quote_name(literal)
+
     defp quote_qualified_name(name, sources, ix) do
       {_, source, _} = elem(sources, ix)
       [source, ?. | quote_name(name)]
@@ -317,7 +342,9 @@ if Code.ensure_loaded(XQLite3) do
 
     defp column_type(atom, query), do: ecto_to_db(atom, query)
 
-    # todo: better handling of casts/types, datetimes, etc
+    defp ecto_to_db({:map, _}, _query), do: "text"
+    defp ecto_to_db(:naive_datetime, _query), do: "datetime"
+    defp ecto_to_db(:binary, _query), do: "blob"
     defp ecto_to_db(type, _query), do: Atom.to_string(type)
 
   end

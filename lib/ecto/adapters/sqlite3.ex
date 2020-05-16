@@ -7,7 +7,8 @@ defmodule Ecto.Adapters.SQLite3 do
 
   # Inherit all behaviour from Ecto.Adapters.SQL
   use Ecto.Adapters.SQL,
-    driver: :xqlite3
+    driver: :xqlite3,
+    migration_lock: nil
 
   @behaviour Ecto.Adapter.Storage
   # @behaviour Ecto.Adapter.Structure
@@ -47,4 +48,11 @@ defmodule Ecto.Adapters.SQLite3 do
       false -> :down
     end
   end
+
+  @impl true
+  def supports_ddl_transaction? do
+    true
+  end
+
+
 end

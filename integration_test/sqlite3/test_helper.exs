@@ -47,10 +47,6 @@ _ = Ecto.Adapters.SQLite3.storage_down(TestRepo.config())
 :ok = Ecto.Adapters.SQLite3.storage_up(TestRepo.config())
 
 {:ok, _pid} = TestRepo.start_link()
-:ok = Ecto.Migrator.up(TestRepo, 0, Ecto.Integration.Migration, log: :debug)
-# Ecto.Adapters.SQL.Sandbox.mode(TestRepo, :manual)
-
-Process.flag(:trap_exit, true)
 
 ExUnit.configure(
   exclude: [
@@ -58,5 +54,8 @@ ExUnit.configure(
     :returning
   ]
 )
+
+:ok = Ecto.Migrator.up(TestRepo, 0, Ecto.Integration.Migration, log: :debug)
+Process.flag(:trap_exit, true)
 
 ExUnit.start()
