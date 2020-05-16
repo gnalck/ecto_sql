@@ -39,12 +39,15 @@ if Code.ensure_loaded(XQLite3) do
     alias Ecto.Migration.{Table, Index, Reference, Constraint}
 
     @impl true
+    def ddl_logs(_), do: []
+
+    @impl true
     @spec execute_ddl(command :: Ecto.Adapter.Migration.command()) :: String.t() | [iodata]
     def execute_ddl({command, %Table{} = table, columns})
         when command in [:create, :create_if_not_exists] do
       table_name = quote_table(table.prefix, table.name)
 
-      query = [
+      query = [[
         "CREATE TABLE ",
         if_do(command == :create_if_not_exists, "IF NOT EXISTS "),
         table_name,
@@ -52,7 +55,7 @@ if Code.ensure_loaded(XQLite3) do
         column_definitions(table, columns),
         # pk_definitions(columns, ", "),
         ?)
-      ]
+      ]]
     end
 
     def execute_ddl({command, %Table{} = table, columns})
@@ -116,28 +119,13 @@ if Code.ensure_loaded(XQLite3) do
     defp intersperse_map([elem | rest], separator, mapper, acc),
       do: intersperse_map(rest, separator, mapper, [acc, mapper.(elem), separator])
 
-    defp quote_name(name)
     defp quote_name(name) when is_atom(name), do: quote_name(Atom.to_string(name))
-
-    defp quote_name(name) do
-      if String.contains?(name, "`") do
-        raise ArgumentError, "bad field name #{inspect(name)}"
-      end
-
-      [?`, name, ?`]
-    end
+    defp quote_name(name), do: name
 
     defp quote_table(nil, name), do: quote_table(name)
     defp quote_table(prefix, name), do: [quote_table(prefix), ?., quote_table(name)]
     defp quote_table(name) when is_atom(name), do: quote_table(Atom.to_string(name))
-
-    defp quote_table(name) do
-      if String.contains?(name, "`") do
-        raise ArgumentError, "bad table name #{inspect(name)}"
-      end
-
-      [?`, name, ?`]
-    end
+    defp quote_table(name), do: name
 
     defp if_do(condition, value) do
       if condition, do: value, else: []
