@@ -103,7 +103,6 @@ defmodule Ecto.Integration.SQLTest do
     assert ["''"] == TestRepo.all(reader)
   end
 
-  @tag :wip
   test "Repo.delete_all escape" do
     TestRepo.insert!(%Post{title: "hello"})
     assert [_] = TestRepo.all(Post)

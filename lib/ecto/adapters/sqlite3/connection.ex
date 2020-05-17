@@ -19,7 +19,7 @@ if Code.ensure_loaded(XQLite3) do
 
     @impl true
     def execute(conn, query, params, opts) do
-      case SQLite3.execute(conn, query, params, opts) do
+      case XQLite3.execute(conn, query, params, opts) do
         {:ok, _, result} -> {:ok, result}
         {:error, _} = error -> error
       end
@@ -66,13 +66,13 @@ if Code.ensure_loaded(XQLite3) do
     def delete_all(query) do
       sources = create_names(query, [])
       cte = [] # cte(query, sources)
-      {_, name, _} = elem(sources, 0)
 
       from   = from(query, sources)
       join   = [] # join(query, sources)
       where  = where(query, sources)
 
-      res = [cte, "DELETE ", name, ".*", from, join | where]
+      # cannot have e.g. "delete x0.* from". must be "delete from"
+      res = [cte, "DELETE ", from, join | where]
       IO.puts(to_string(res))
       res
     end
