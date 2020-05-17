@@ -13,6 +13,7 @@ alias Ecto.Integration.TestRepo
 Application.put_env(
   :ecto_sql,
   TestRepo,
+  pool: Ecto.Adapters.SQL.Sandbox,
   path: "test.db"
 )
 
@@ -39,6 +40,10 @@ Code.require_file("../support/migration.exs", __DIR__)
 
 defmodule Ecto.Integration.Case do
   use ExUnit.CaseTemplate
+
+  setup do
+    :ok = Ecto.Adapters.SQL.Sandbox.checkout(TestRepo)
+  end
 end
 
 {:ok, _} = Ecto.Adapters.SQLite3.ensure_all_started(TestRepo.config(), :temporary)
@@ -56,6 +61,7 @@ ExUnit.configure(
 )
 
 :ok = Ecto.Migrator.up(TestRepo, 0, Ecto.Integration.Migration, log: :debug)
+Ecto.Adapters.SQL.Sandbox.mode(TestRepo, :manual)
 Process.flag(:trap_exit, true)
 
 ExUnit.start()

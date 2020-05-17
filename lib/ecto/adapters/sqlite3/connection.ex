@@ -25,12 +25,6 @@ if Code.ensure_loaded(XQLite3) do
       end
     end
 
-    @impl Ecto.Adapters.SQL.Connection
-    def insert(prefix, table, header, rows, _on_conflict, _returning) do
-      fields = intersperse_map(header, ?,, &quote_name/1)
-      ["INSERT INTO ", quote_table(prefix, table), " (", fields, ") VALUES ", insert_all(rows)]
-    end
-
     # def insert(_prefix, _table, _header, _rows, _on_conflict, _returning) do
     #   IO.puts(inspect(_returning))
     #   raise ArgumentError, ":returning is not supported in insert/insert_all by SQLite3"
@@ -40,14 +34,14 @@ if Code.ensure_loaded(XQLite3) do
 
     @impl true
     def all(query, as_prefix \\ []) do
-      IO.inspect(query)
+      #IO.inspect(query)
       sources = create_names(query, as_prefix)
 
       cte = [] #cte(query, sources)
       from = from(query, sources)
-      IO.inspect(from)
+      #IO.inspect(from)
       select = select(query, sources)
-      IO.inspect(select)
+      #IO.inspect(select)
       join = [] #join(query, sources)
       where = [] #where(query, sources)
       group_by = [] #group_by(query, sources)
@@ -60,6 +54,27 @@ if Code.ensure_loaded(XQLite3) do
       lock = [] #lock(query, sources)
 
       [cte, select, from, join, where, group_by, having, window, combinations, order_by, limit, offset | lock]
+    end
+
+    @impl true
+    def insert(prefix, table, header, rows, _on_conflict, _returning) do
+      fields = intersperse_map(header, ?,, &quote_name/1)
+      ["INSERT INTO ", quote_table(prefix, table), " (", fields, ") VALUES ", insert_all(rows)]
+    end
+
+    @impl true
+    def delete_all(query) do
+      sources = create_names(query, [])
+      cte = [] # cte(query, sources)
+      {_, name, _} = elem(sources, 0)
+
+      from   = from(query, sources)
+      join   = [] # join(query, sources)
+      where  = where(query, sources)
+
+      res = [cte, "DELETE ", name, ".*", from, join | where]
+      IO.puts(to_string(res))
+      res
     end
 
     # Migrations
@@ -268,6 +283,28 @@ if Code.ensure_loaded(XQLite3) do
       [" FROM ", from, " AS " | name]
     end
 
+    defp where(%{wheres: wheres} = query, sources) do
+      boolean(" WHERE ", wheres, sources, query)
+    end
+
+    defp boolean(_name, [], _sources, _query), do: []
+    defp boolean(name, [%{expr: expr, op: op} | query_exprs], sources, query) do
+      [name,
+       Enum.reduce(query_exprs, {op, paren_expr(expr, sources, query)}, fn
+         %BooleanExpr{expr: expr, op: op}, {op, acc} ->
+           {op, [acc, operator_to_boolean(op) | paren_expr(expr, sources, query)]}
+         %BooleanExpr{expr: expr, op: op}, {_, acc} ->
+           {op, [?(, acc, ?), operator_to_boolean(op) | paren_expr(expr, sources, query)]}
+       end) |> elem(1)]
+    end
+
+    defp operator_to_boolean(:and), do: " AND "
+    defp operator_to_boolean(:or), do: " OR "
+
+    defp paren_expr(expr, sources, query) do
+      [?(, expr(expr, sources, query), ?)]
+    end
+
     defp get_source(query, sources, ix, source) do
       {expr, name, _schema} = elem(sources, ix)
       {expr || expr(source, sources, query), name}
@@ -312,6 +349,23 @@ if Code.ensure_loaded(XQLite3) do
       quote_qualified_name(field, sources, idx)
     end
 
+    defp expr({fun, _, args}, sources, query) when is_atom(fun) and is_list(args) do
+      {modifier, args} =
+        case args do
+          [rest, :distinct] -> {"DISTINCT ", [rest]}
+          _ -> {"", args}
+        end
+
+      case handle_call(fun, length(args)) do
+        {:binary_op, op} ->
+          [left, right] = args
+          [op_to_binary(left, sources, query), op | op_to_binary(right, sources, query)]
+
+        {:fun, fun} ->
+          [fun, ?(, modifier, intersperse_map(args, ", ", &expr(&1, sources, query)), ?)]
+      end
+    end
+
     defp expr(%Tagged{value: other, type: type}, sources, query) do
       ["CAST(", expr(other, sources, query), " AS ", ecto_to_db(type, query), ?)]
     end
@@ -347,5 +401,26 @@ if Code.ensure_loaded(XQLite3) do
     defp ecto_to_db(:binary, _query), do: "blob"
     defp ecto_to_db(type, _query), do: Atom.to_string(type)
 
+    binary_ops =
+      [==: " = ", !=: " != ", <=: " <= ", >=: " >= ", <: " < ", >: " > ",
+       +: " + ", -: " - ", *: " * ", /: " / ",
+       and: " AND ", or: " OR ", like: " LIKE "]
+
+    @binary_ops Keyword.keys(binary_ops)
+
+    Enum.map(binary_ops, fn {op, str} ->
+      defp handle_call(unquote(op), 2), do: {:binary_op, unquote(str)}
+    end)
+
+    defp handle_call(fun, _arity), do: {:fun, Atom.to_string(fun)}
+
+    defp op_to_binary({op, _, [_, _]} = expr, sources, query) when op in @binary_ops,
+      do: paren_expr(expr, sources, query)
+
+    defp op_to_binary({:is_nil, _, [_]} = expr, sources, query),
+      do: paren_expr(expr, sources, query)
+
+    defp op_to_binary(expr, sources, query),
+      do: expr(expr, sources, query)
   end
 end
