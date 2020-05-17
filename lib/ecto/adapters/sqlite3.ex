@@ -51,7 +51,7 @@ defmodule Ecto.Adapters.SQLite3 do
 
   @impl true
   def supports_ddl_transaction? do
-    true
+    false
   end
 
 
