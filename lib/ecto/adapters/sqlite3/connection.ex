@@ -83,6 +83,19 @@ if Code.ensure_loaded(XQLite3) do
     end
 
     @impl true
+    def update(prefix, table, fields, filters, _returning) do
+      fields = intersperse_map(fields, ", ", &[quote_name(&1), " = ?"])
+      filters = intersperse_map(filters, " AND ", fn
+        {field, nil} ->
+          [quote_name(field), " IS NULL"]
+
+        {field, _value} ->
+          [quote_name(field), " = ?"]
+      end)
+      ["UPDATE ", quote_table(prefix, table), " SET ", fields, " WHERE " | filters]
+    end
+
+    @impl true
     def delete_all(query) do
       sources = create_names(query, [])
       cte = [] # cte(query, sources)
