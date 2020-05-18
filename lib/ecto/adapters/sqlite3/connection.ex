@@ -63,6 +63,26 @@ if Code.ensure_loaded(XQLite3) do
     end
 
     @impl true
+    def update_all(%{from: %{source: source}} = query) do
+      sources = create_names(query, [])
+      cte = [] #cte(query, sources)
+      {from, name} = get_source(query, sources, 0, source)
+
+      fields = update_fields(query, sources)
+      where = where(query, sources)
+
+      [
+        cte,
+        "UPDATE ",
+        name,
+        " SET ",
+        fields,
+        from,
+        where
+      ]
+    end
+
+    @impl true
     def delete_all(query) do
       sources = create_names(query, [])
       cte = [] # cte(query, sources)
@@ -281,6 +301,26 @@ if Code.ensure_loaded(XQLite3) do
     defp from(%{from: %{source: source}} = query, sources) do
       {from, name} = get_source(query, sources, 0, source)
       [" FROM ", from, " AS " | name]
+    end
+
+    defp update_fields(%{updates: updates} = query, sources) do
+      for(%{expr: expr} <- updates,
+          {op, kw} <- expr,
+          {key, value} <- kw,
+          do: update_op(op, key, value, sources, query)) |> Enum.intersperse(", ")
+    end
+
+    defp update_op(:set, key, value, sources, query) do
+      [quote_name(key), " = " | expr(value, sources, query)]
+    end
+
+    defp update_op(:inc, key, value, sources, query) do
+      [quote_name(key), " = ", quote_qualified_name(key, sources, 0), " + " |
+       expr(value, sources, query)]
+    end
+
+    defp update_op(command, _key, _value, _sources, query) do
+      error!(query, "unsupported update operation #{inspect command} for SQLite3")
     end
 
     defp where(%{wheres: wheres} = query, sources) do
