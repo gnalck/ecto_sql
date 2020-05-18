@@ -97,6 +97,18 @@ if Code.ensure_loaded(XQLite3) do
       res
     end
 
+    @impl true
+    def delete(prefix, table, filters, _returning) do
+      filters = intersperse_map(filters, " AND ", fn
+        {field, nil} ->
+          [quote_name(field), " IS NULL"]
+
+        {field, _value} ->
+          [quote_name(field), " = ?"]
+      end)
+      ["DELETE FROM ", quote_table(prefix, table), " WHERE " | filters]
+    end
+
     # Migrations
 
     alias Ecto.Migration.{Table, Index, Reference, Constraint}
@@ -118,7 +130,7 @@ if Code.ensure_loaded(XQLite3) do
         table_name,
         " (",
         column_definitions(table, columns),
-        # pk_definitions(columns, ", "),
+        pk_definitions(columns, ", "),
         ?)
       ]]
     end
@@ -218,6 +230,18 @@ if Code.ensure_loaded(XQLite3) do
 
     defp escape_string(value) when is_binary(value) do
       value |> :binary.replace("'", "''", [:global])
+    end
+
+    defp pk_definitions(columns, prefix) do
+      pks =
+        for {_, name, _, opts} <- columns,
+            opts[:primary_key],
+            do: name
+
+      case pks do
+        [] -> []
+        _  -> [[prefix, "PRIMARY KEY (", intersperse_map(pks, ", ", &quote_name/1), ?)]]
+      end
     end
 
     defp column_definitions(table, columns) do
@@ -436,6 +460,9 @@ if Code.ensure_loaded(XQLite3) do
 
     defp column_type(atom, query), do: ecto_to_db(atom, query)
 
+    defp ecto_to_db(:id, _query), do: "integer"
+    defp ecto_to_db(:serial, _query), do: "integer"
+    defp ecto_to_db(:bigserial, _query), do: "integer"
     defp ecto_to_db({:map, _}, _query), do: "text"
     defp ecto_to_db(:naive_datetime, _query), do: "datetime"
     defp ecto_to_db(:binary, _query), do: "blob"
