@@ -74,10 +74,11 @@ if Code.ensure_loaded(XQLite3) do
       [
         cte,
         "UPDATE ",
+        from,
+        " AS ",
         name,
         " SET ",
         fields,
-        from,
         where
       ]
     end
@@ -105,9 +106,7 @@ if Code.ensure_loaded(XQLite3) do
       where  = where(query, sources)
 
       # cannot have e.g. "delete x0.* from". must be "delete from"
-      res = [cte, "DELETE ", from, join | where]
-      IO.puts(to_string(res))
-      res
+      [cte, "DELETE ", from, join | where]
     end
 
     @impl true
