@@ -426,6 +426,14 @@ if Code.ensure_loaded(XQLite3) do
       quote_qualified_name(field, sources, idx)
     end
 
+    defp expr({:fragment, _, parts}, sources, query) do
+      Enum.map(parts, fn
+        {:raw, part}  -> part
+        {:expr, expr} -> expr(expr, sources, query)
+      end)
+      |> parens_for_select
+    end
+
     defp expr({fun, _, args}, sources, query) when is_atom(fun) and is_list(args) do
       {modifier, args} =
         case args do
@@ -502,5 +510,13 @@ if Code.ensure_loaded(XQLite3) do
 
     defp op_to_binary(expr, sources, query),
       do: expr(expr, sources, query)
+
+    defp parens_for_select([first_expr | _] = expr) do
+      if is_binary(first_expr) and String.starts_with?(first_expr, ["SELECT", "select"]) do
+        [?(, expr, ?)]
+      else
+        expr
+      end
+    end
   end
 end
