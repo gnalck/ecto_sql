@@ -43,7 +43,7 @@ if Code.ensure_loaded(XQLite3) do
       select = select(query, sources)
       #IO.inspect(select)
       join = [] #join(query, sources)
-      where = [] #where(query, sources)
+      where = where(query, sources)
       group_by = [] #group_by(query, sources)
       having = [] #having(query, sources)
       window = [] #window(query, sources)
@@ -402,7 +402,7 @@ if Code.ensure_loaded(XQLite3) do
         {:&, _, [idx]} ->
           case elem(sources, idx) do
             {source, _, nil} ->
-              error!(query, "MySQL does not support selecting all fields from #{source} without a schema. " <>
+              error!(query, "SQLite3 does not support selecting all fields from #{source} without a schema. " <>
                             "Please specify a schema or specify exactly which fields you want to select")
             {_, source, _} ->
               source
@@ -420,6 +420,10 @@ if Code.ensure_loaded(XQLite3) do
 
     defp distinct(%QueryExpr{expr: exprs}, _sources, query) when is_list(exprs) do
       error!(query, "DISTINCT with multiple columns is not supported by SQLite3")
+    end
+
+    defp expr({:^, [], [_ix]}, _sources, _query) do
+      '?'
     end
 
     defp expr({{:., _, [{:&, _, [idx]}, field]}, _, []}, sources, _query) when is_atom(field) do
@@ -484,6 +488,7 @@ if Code.ensure_loaded(XQLite3) do
     defp ecto_to_db(:id, _query), do: "integer"
     defp ecto_to_db(:serial, _query), do: "integer"
     defp ecto_to_db(:bigserial, _query), do: "integer"
+    defp ecto_to_db(:uuid, _query), do: "blob"
     defp ecto_to_db({:map, _}, _query), do: "text"
     defp ecto_to_db(:naive_datetime, _query), do: "datetime"
     defp ecto_to_db(:binary, _query), do: "blob"
