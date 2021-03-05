@@ -67,6 +67,9 @@ defmodule EctoSQL.MixProject do
       # Bring something in for JSON during tests
       {:jason, ">= 0.0.0", only: [:test, :docs]},
 
+      # needed for exqlite tests
+      {:temp, "~> 0.4", only: [:test]},
+
       # Docs
       {:ex_doc, "~> 0.21", only: :docs},
 
