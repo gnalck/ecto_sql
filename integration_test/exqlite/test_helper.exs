@@ -1,4 +1,4 @@
-Logger.configure(level: :info)
+Logger.configure(level: :debug)
 
 Application.put_env(:ecto, :primary_key_type, :id)
 Application.put_env(:ecto, :async_integration_tests, false)
@@ -75,6 +75,7 @@ _   = Ecto.Adapters.Exqlite.storage_down(TestRepo.config())
 ExUnit.configure(
   exclude: [
     :array_type,
+    :transaction_isolation,
   ]
 )
 
