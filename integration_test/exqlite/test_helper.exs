@@ -9,18 +9,19 @@ Code.require_file "../support/repo.exs", __DIR__
 alias Ecto.Integration.TestRepo
 
 # should be :ecto_sql ?
-Application.put_env(:exqlite, TestRepo,
+Application.put_env(:ecto_sql, TestRepo,
   adapter: Ecto.Adapters.Exqlite,
   database: "/tmp/exqlite_sandbox_test.db",
   journal_mode: :wal,
   cache_size: -64000,
   temp_store: :memory,
   pool: Ecto.Adapters.SQL.Sandbox,
+  pool_size: 10,
   show_sensitive_data_on_connection_error: true
 )
 
 defmodule Ecto.Integration.TestRepo do
-  use Ecto.Integration.Repo, otp_app: :exqlite, adapter: Ecto.Adapters.Exqlite
+  use Ecto.Integration.Repo, otp_app: :ecto_sql, adapter: Ecto.Adapters.Exqlite
 
   def create_prefix(prefix) do
     "attach database #{prefix}.db as #{prefix}"
@@ -37,8 +38,7 @@ end
 
 alias Ecto.Integration.PoolRepo
 
-Application.put_env(:exqlite, PoolRepo,
-  adapter: Ecto.Adapters.Exqlite,
+Application.put_env(:ecto_sql, PoolRepo,
   database: "/tmp/exqlite_sandbox_test.db",
   journal_mode: :wal,
   cache_size: -64000,
@@ -70,6 +70,7 @@ _   = Ecto.Adapters.Exqlite.storage_down(TestRepo.config())
 :ok = Ecto.Adapters.Exqlite.storage_up(TestRepo.config())
 
 {:ok, _pid} = TestRepo.start_link()
+{:ok, _pid} = PoolRepo.start_link()
 
 ExUnit.configure(
   exclude: [
